@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -m pip install --user --quiet pypdf)",
+      "Bash(python3 -c \"import pypdf; print\\('ok', pypdf.__version__\\)\")"
+    ]
+  }
+}
