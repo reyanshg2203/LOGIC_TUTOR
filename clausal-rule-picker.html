@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDO Clausal Form Conversion Diagnostic Problems</title>
+<style>
+  :root{
+    --bg:#14181f;--panel:#1b212b;--panel-2:#222b37;--border:#2b3542;--border-soft:#232c38;
+    --text:#e8ecf1;--muted:#8b97a7;--faint:#5c6a7a;
+    --op:#e0b072;--clause:#63c2b0;--accent:#6bd0ff;--wrong:#e08a8a;
+    --mono:ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;padding:clamp(20px,4vw,56px)}
+  .wrap{max-width:1080px;margin:0 auto}
+
+  header{border-bottom:1px solid var(--border);padding-bottom:26px;margin-bottom:30px}
+  h1{font-size:clamp(26px,4vw,38px);font-weight:600;margin:0;letter-spacing:-.01em}
+  .lede{color:var(--muted);margin:14px 0 0;max-width:64ch;font-size:15px}
+
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:34px;align-items:start}
+  @media (max-width:820px){.grid{grid-template-columns:1fr;gap:26px}}
+
+  .group{margin-bottom:26px}
+  .group:last-child{margin-bottom:0}
+  .grouphead{display:flex;align-items:center;gap:12px;margin:0 0 12px}
+  .glyph{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--bg);background:var(--muted);width:22px;height:22px;border-radius:5px;display:grid;place-items:center;flex:none}
+  .gname{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--text)}
+  .gdesc{color:var(--faint);font-size:12.5px;margin-left:auto;text-align:right}
+  @media (max-width:520px){.gdesc{display:none}}
+
+  .rule{width:100%;text-align:left;cursor:pointer;background:var(--panel);border:1px solid var(--border-soft);border-left:3px solid transparent;border-radius:9px;padding:12px 14px;margin-bottom:8px;color:inherit;font:inherit;display:flex;align-items:center;gap:14px;transition:background .16s,border-color .16s}
+  .rule:hover{background:var(--panel-2);border-left-color:var(--faint)}
+  .rule:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .rule[aria-pressed="true"]{background:var(--panel-2);border-color:var(--accent);border-left-color:var(--accent)}
+  .chip{font-family:var(--mono);font-weight:600;font-size:12.5px;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:3px 8px;flex:none;min-width:38px;text-align:center;transition:color .16s,background .16s,border-color .16s}
+  .rule[aria-pressed="true"] .chip{color:var(--bg);background:var(--accent);border-color:var(--accent)}
+  .formula{font-family:var(--mono);font-size:14px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+  .formula::-webkit-scrollbar{display:none}
+  .arrow{color:var(--faint);padding:0 10px}
+  .op{color:var(--op)}
+  .cl{color:var(--clause)}
+
+  .inspector{position:sticky;top:28px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;min-height:280px}
+  @media (max-width:820px){.inspector{position:static}}
+  .insp-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin:0 0 16px}
+  .empty{color:var(--muted);font-size:14px}
+  .empty .big{color:var(--text);font-size:16px;font-weight:600;margin-bottom:6px}
+  .target-id{font-family:var(--mono);font-size:32px;font-weight:700;color:var(--accent);line-height:1;letter-spacing:.02em}
+  .target-name{font-size:16px;font-weight:600;margin:8px 0 2px}
+  .target-cat{color:var(--muted);font-size:13px}
+  .block{margin-top:20px}
+  .block-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:0 0 7px}
+  .rewrite{font-family:var(--mono);font-size:14.5px;background:var(--bg);border:1px solid var(--border-soft);border-radius:8px;padding:11px 12px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+  .rewrite::-webkit-scrollbar{display:none}
+  .mut-list{list-style:none;margin:0;padding:0}
+  .mut-list li{display:flex;gap:9px;align-items:baseline;padding:6px 0;border-top:1px solid var(--border-soft);font-size:13.5px}
+  .mut-list li:first-child{border-top:none}
+  .mut-op{font-family:var(--mono);font-size:11px;color:var(--wrong);flex:none;width:14px;text-align:center}
+  .errtext{color:var(--muted);font-size:13px;margin:12px 2px 0;line-height:1.55}
+  .action{margin-top:22px;padding-top:20px;border-top:1px solid var(--border-soft)}
+  .btn{font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;background:var(--accent);color:#0c1219;border:none;border-radius:8px;padding:10px 15px;width:100%;transition:filter .16s}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+
+  #result{margin-top:36px;border-top:1px solid var(--border);padding-top:28px;display:none}
+  #result.show{display:block}
+  .result-head{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin:0 0 6px}
+  .result-title{font-size:20px;font-weight:600;margin:0 0 6px}
+  .result-title b{font-family:var(--mono);color:var(--accent)}
+  .result-sub{color:var(--muted);font-size:13.5px;margin:0 0 20px}
+  .trace{display:flex;flex-direction:column;gap:8px;margin-bottom:24px}
+  .trace-row{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--border-soft);border-radius:8px;padding:9px 12px;font-family:var(--mono);font-size:13.5px;flex-wrap:wrap}
+  .pill{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.04em;padding:2px 9px;border-radius:999px;flex:none}
+  .pill.pass{background:rgba(107,208,255,.15);color:var(--accent)}
+  .pill.fail{background:rgba(224,138,138,.14);color:var(--wrong)}
+  .trace-note{color:var(--muted);font-size:12px;margin-left:auto;font-family:var(--sans);text-align:right;max-width:60%}
+  .cert{background:var(--panel);border:1px solid var(--accent);border-radius:12px;padding:24px}
+  .cert .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:0 0 7px}
+  .cert .prob{font-family:var(--mono);font-size:21px;margin:0}
+  .answer-key{font-family:var(--mono);font-size:15px;background:var(--bg);border:1px solid var(--border-soft);border-radius:8px;padding:11px 12px}
+  .subhead{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:20px 0 8px}
+  .sig{border:1px solid rgba(107,208,255,.28);border-radius:9px;margin-bottom:8px;background:rgba(107,208,255,.04)}
+  .sig-row{width:100%;display:flex;align-items:center;gap:12px;background:none;border:none;color:inherit;font:inherit;cursor:pointer;padding:12px 14px;text-align:left;border-radius:9px}
+  .sig-row:hover{background:rgba(107,208,255,.06)}
+  .sig-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .sig-row .wa{font-family:var(--mono);font-size:14px;flex:1;min-width:0}
+  .sig-row .chev{font-family:var(--sans);font-size:12px;color:var(--accent);white-space:nowrap}
+  .sig-detail{padding:0 14px 14px}
+  .walk{padding-top:12px}
+  .walk+.walk{border-top:1px dashed var(--border-soft);margin-top:14px}
+  .walk-lead{font-size:13.5px;margin:0 0 5px}
+  .walk-why{color:var(--muted);font-size:13.5px;margin:0 0 12px;line-height:1.55}
+  .steps{list-style:none;margin:0;padding:0;counter-reset:st}
+  .steps li{position:relative;padding:9px 0 9px 24px;border-top:1px solid var(--border-soft);font-family:var(--mono);font-size:14px}
+  .steps li:first-child{border-top:none}
+  .steps li::before{counter-increment:st;content:counter(st);position:absolute;left:2px;top:9px;color:var(--faint);font-size:11px}
+  .st-label{display:block;font-family:var(--sans);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:3px}
+  .steps li.err{background:rgba(224,138,138,.07);margin:0 -8px;padding-left:32px;padding-right:8px;border-radius:6px;border-top-color:transparent}
+  .steps li.err::before{color:var(--wrong)}
+  .st-note{font-family:var(--sans);font-size:12.5px;color:var(--wrong);margin-top:7px;line-height:1.5;max-width:62ch}
+  .walk-end{font-family:var(--sans);font-size:12.5px;color:var(--muted);margin:13px 0 0;line-height:1.5}
+  .walk-end code{font-family:var(--mono);color:var(--text)}
+  .dmap{margin-top:6px;border-collapse:collapse;width:100%}
+  .dmap td{border-top:1px solid var(--border-soft);padding:11px 8px;vertical-align:top}
+  .dmap .wa{font-family:var(--mono);font-size:14px}
+  .dmap .tag{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap;text-align:right}
+  .verdict{background:var(--panel);border:1px solid #3a2b2f;border-left:3px solid var(--wrong);border-radius:10px;padding:22px}
+  .verdict h3{margin:0 0 8px;font-size:16px}
+  .verdict p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
+  .verdict code{font-family:var(--mono);color:var(--text)}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  .fade{animation:fade .22s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>INDO Clausal Form Conversion Diagnostic Problems</h1>
+    <p class="lede">Each conversion rule is a concept a student must hold. A small set of edit operators (swap a connective, drop a negation, negate the wrong side, drop a conjunct, skip a step, swap a reading) is applied across every rule to generate the whole space of possible misconceptions. Pick a target, and the generator finds a problem where every way of getting that one concept wrong yields an answer no other rule can imitate.</p>
+  </header>
+
+  <div class="grid">
+    <main id="catalog"></main>
+    <aside class="inspector" aria-live="polite">
+      <p class="insp-eyebrow">Target concept</p>
+      <div id="insp">
+        <div class="empty"><div class="big">Nothing selected</div>Pick a rule from the left to load it as the target concept.</div>
+      </div>
+    </aside>
+  </div>
+
+  <section id="result" aria-live="polite"></section>
+</div>
+
+<script>
+/* ---------------- terms + printing ---------------- */
+const A=n=>({t:'atom',n}), NOT=a=>({t:'not',a}), AND=(a,b)=>({t:'and',a,b}),
+      OR=(a,b)=>({t:'or',a,b}), IMP=(a,b)=>({t:'imp',a,b}), IFF=(a,b)=>({t:'iff',a,b});
+const PREC={atom:5,not:4,and:3,or:2,imp:1,iff:1};
+const SYM={and:' ∧ ',or:' ∨ ',imp:' ⇒ ',iff:' ⇔ '};
+function toStr(x,pp){const pr=PREC[x.t];let s;if(x.t==='atom')return x.n;if(x.t==='not')s='¬'+toStr(x.a,4);else s=toStr(x.a,pr)+SYM[x.t]+toStr(x.b,pr);return pr<pp?'('+s+')':s;}
+
+/* ---------------- engine: mutation m = null | {rule, op} ----------------
+   A single misconception replaces exactly one rule with one operator-edited variant. */
+function elim(x,m){switch(x.t){
+  case 'atom':return x; case 'not':return NOT(elim(x.a,m));
+  case 'and':return AND(elim(x.a,m),elim(x.b,m)); case 'or':return OR(elim(x.a,m),elim(x.b,m));
+  case 'imp':{const a=elim(x.a,m),b=elim(x.b,m); if(m&&m.rule==='I1')switch(m.op){case 'dropNeg':return OR(a,b);case 'swapConn':return AND(NOT(a),b);case 'wrongSide':return OR(a,NOT(b));case 'negBoth':return OR(NOT(a),NOT(b));case 'skip':return IMP(a,b);} return OR(NOT(a),b);}
+  case 'iff':{const a=elim(x.a,m),b=elim(x.b,m),A1=OR(NOT(a),b),A2=OR(a,NOT(b)); if(m&&m.rule==='I3')switch(m.op){case 'dropConjL':return A1;case 'dropConjR':return A2;case 'swapTop':return OR(A1,A2);case 'swapConn':return AND(AND(NOT(a),b),AND(a,NOT(b)));case 'xor':return AND(OR(a,b),OR(NOT(a),NOT(b)));case 'skip':return IFF(a,b);} return AND(A1,A2);}
+}}
+function nnf(x,m){switch(x.t){
+  case 'atom':return x; case 'and':return AND(nnf(x.a,m),nnf(x.b,m)); case 'or':return OR(nnf(x.a,m),nnf(x.b,m));
+  case 'not':{const y=x.a; switch(y.t){
+    case 'atom':return NOT(y);
+    case 'not': if(m&&m.rule==='N1'){if(m.op==='partial')return NOT(nnf(y.a,m));if(m.op==='skip')return NOT(NOT(nnf(y.a,m)));} return nnf(y.a,m);
+    case 'and':{const ln=nnf(NOT(y.a),m),rn=nnf(NOT(y.b),m),lp=nnf(y.a,m),rp=nnf(y.b,m); if(m&&m.rule==='N2')switch(m.op){case 'keepConn':return AND(ln,rn);case 'dropNegL':return OR(lp,rn);case 'dropNegR':return OR(ln,rp);case 'noNeg':return OR(lp,rp);case 'skip':return NOT(AND(lp,rp));} return OR(ln,rn);}
+    case 'or':{const ln=nnf(NOT(y.a),m),rn=nnf(NOT(y.b),m),lp=nnf(y.a,m),rp=nnf(y.b,m); if(m&&m.rule==='N3')switch(m.op){case 'keepConn':return OR(ln,rn);case 'dropNegL':return AND(lp,rn);case 'dropNegR':return AND(ln,rp);case 'noNeg':return AND(lp,rp);case 'skip':return NOT(OR(lp,rp));} return AND(ln,rn);}
+    default:return x;
+  }}
+  default:return x;
+}}
+function distr(a,b,m){
+  if(b.t==='and'){ if(m&&m.rule==='D1')switch(m.op){case 'skip':return OR(a,b);case 'dualDist':return OR(AND(a,b.a),AND(a,b.b));case 'swapJoin':return OR(distr(a,b.a,m),distr(a,b.b,m));case 'partialL':return AND(distr(a,b.a,m),b.b);case 'partialR':return AND(b.a,distr(a,b.b,m));} return AND(distr(a,b.a,m),distr(a,b.b,m)); }
+  if(a.t==='and'){ if(m&&m.rule==='D2')switch(m.op){case 'skip':return OR(a,b);case 'dualDist':return OR(AND(a.a,b),AND(a.b,b));case 'swapJoin':return OR(distr(a.a,b,m),distr(a.b,b,m));case 'partialL':return AND(distr(a.a,b,m),a.b);case 'partialR':return AND(a.a,distr(a.b,b,m));} return AND(distr(a.a,b,m),distr(a.b,b,m)); }
+  return OR(a,b);
+}
+function cnf(x,m){switch(x.t){case 'atom':case 'not':return x;case 'and':return AND(cnf(x.a,m),cnf(x.b,m));case 'or':return distr(cnf(x.a,m),cnf(x.b,m),m);default:return x;}}
+function flat(x,op){return x.t===op?[...flat(x.a,op),...flat(x.b,op)]:[x];}
+function litStr(x){if(x.t==='atom')return x.n;if(x.t==='not'&&x.a.t==='atom')return '¬'+x.a.n;return null;}
+function readClauses(x,m){const conj=flat(x,'and'),clauses=[];
+  if(m&&m.rule==='O2'&&m.op==='lump'){const lits=[];for(const c of conj)for(const d of flat(c,'or')){const l=litStr(d);if(l===null)return{cnf:false};lits.push(l);}return{cnf:true,clauses:[lits]};}
+  for(const c of conj){const lits=[];for(const d of flat(c,'or')){const l=litStr(d);if(l===null)return{cnf:false};lits.push(l);}if(m&&m.rule==='O1'&&m.op==='split')lits.forEach(l=>clauses.push([l]));else clauses.push(lits);}
+  return{cnf:true,clauses};}
+const uniqSort=a=>[...new Set(a)].sort();
+function answer(g,m){const c=cnf(nnf(elim(g,m),m),m),r=readClauses(c,m);if(!r.cnf)return{cnf:false,key:'NC:'+toStr(c,0),display:toStr(c,0)};const s=uniqSort(r.clauses.map(cl=>'{'+uniqSort(cl).join(', ')+'}'));return{cnf:true,key:s.join(' , '),display:s.join(', ')};}
+
+/* ---------------- rules, misconception grammar, problem space ---------------- */
+const GROUPS=[
+  {g:'I',name:'Implications',desc:'Remove ⇒ and ⇔ in favour of ¬, ∨, ∧'},
+  {g:'N',name:'Negations',desc:'Push negations inward to the atoms'},
+  {g:'D',name:'Distribution',desc:'Distribute and flatten into clauses'},
+  {g:'O',name:'Operators',desc:'Read connectives off as a clause set'},
+];
+const RULES=[
+  {id:'I1',g:'I',name:'Remove forward implication',lhs:'φ ⇒ ψ',rhs:'¬φ ∨ ψ'},
+  {id:'I3',g:'I',name:'Remove biconditional',lhs:'φ ⇔ ψ',rhs:'(¬φ ∨ ψ) ∧ (φ ∨ ¬ψ)'},
+  {id:'N1',g:'N',name:'Double negation',lhs:'¬¬φ',rhs:'φ'},
+  {id:'N2',g:'N',name:'De Morgan over conjunction',lhs:'¬(φ ∧ ψ)',rhs:'¬φ ∨ ¬ψ'},
+  {id:'N3',g:'N',name:'De Morgan over disjunction',lhs:'¬(φ ∨ ψ)',rhs:'¬φ ∧ ¬ψ'},
+  {id:'D1',g:'D',name:'Distribute or over and (right)',lhs:'φ ∨ (ψ ∧ χ)',rhs:'(φ ∨ ψ) ∧ (φ ∨ χ)'},
+  {id:'D2',g:'D',name:'Distribute or over and (left)',lhs:'(φ ∧ ψ) ∨ χ',rhs:'(φ ∨ χ) ∧ (ψ ∨ χ)'},
+  {id:'D3',g:'D',name:'Flatten nested disjunction (right)',lhs:'φ ∨ (φ₁ ∨ … ∨ φₙ)',rhs:'φ ∨ φ₁ ∨ … ∨ φₙ'},
+  {id:'D4',g:'D',name:'Flatten nested disjunction (left)',lhs:'(φ₁ ∨ … ∨ φₙ) ∨ φ',rhs:'φ₁ ∨ … ∨ φₙ ∨ φ'},
+  {id:'D5',g:'D',name:'Flatten nested conjunction (right)',lhs:'φ ∧ (φ₁ ∧ … ∧ φₙ)',rhs:'φ ∧ φ₁ ∧ … ∧ φₙ'},
+  {id:'D6',g:'D',name:'Flatten nested conjunction (left)',lhs:'(φ₁ ∧ … ∧ φₙ) ∧ φ',rhs:'φ₁ ∧ … ∧ φₙ ∧ φ'},
+  {id:'O1',g:'O',name:'Disjunction to one clause',lhs:'φ₁ ∨ … ∨ φₙ',rhs:'{φ₁, …, φₙ}'},
+  {id:'O2',g:'O',name:'Conjunction to separate clauses',lhs:'φ₁ ∧ … ∧ φₙ',rhs:'{φ₁}, …, {φₙ}'},
+];
+/* operators applied to each rule to generate the misconception space */
+const VARIANTS={
+  I1:['dropNeg','swapConn','wrongSide','negBoth','skip'],
+  I3:['dropConjL','dropConjR','swapTop','swapConn','xor','skip'],
+  N1:['partial','skip'], N2:['keepConn','dropNegL','dropNegR','noNeg','skip'], N3:['keepConn','dropNegL','dropNegR','noNeg','skip'],
+  D1:['skip','dualDist','swapJoin','partialL','partialR'], D2:['skip','dualDist','swapJoin','partialL','partialR'],
+  D3:['skip'], D4:['skip'], D5:['skip'], D6:['skip'],
+  O1:['split'], O2:['lump'],
+};
+const OPLABEL={
+  dropNeg:'forget to negate an operand', swapConn:'swap ∧ and ∨', wrongSide:'negate the wrong side',
+  negBoth:'negate both sides', skip:'skip the step',
+  dropConjL:'keep only the forward direction', dropConjR:'keep only the reverse direction', swapTop:'join the two directions with ∨',
+  xor:'expand it as exclusive-or', partial:'cancel only one negation',
+  keepConn:'keep the connective', dropNegL:'drop the left negation', dropNegR:'drop the right negation', noNeg:'flip the connective but drop the negations',
+  dualDist:'distribute the wrong way (∧ over ∨)', swapJoin:'join the distributed parts with the wrong connective',
+  partialL:'distribute into the first part only', partialR:'distribute into the second part only',
+  split:'split into separate clauses', lump:'lump into one clause',
+};
+const SEED={
+  I1:IMP(A('p'),A('q')), I3:IFF(A('p'),A('q')),
+  N1:NOT(NOT(A('p'))), N2:NOT(AND(A('p'),A('q'))), N3:NOT(OR(A('p'),A('q'))),
+  D1:OR(A('p'),AND(A('q'),A('r'))), D2:OR(AND(A('p'),A('q')),A('r')),
+  D3:OR(A('p'),OR(A('q'),A('r'))), D4:OR(OR(A('p'),A('q')),A('r')),
+  D5:AND(A('p'),AND(A('q'),A('r'))), D6:AND(AND(A('p'),A('q')),A('r')),
+  O1:OR(A('p'),A('q')), O2:AND(A('p'),A('q')),
+};
+const POOL=['r','s','t','u','w'];
+function atomsOf(x,acc){acc=acc||new Set();if(x.t==='atom')acc.add(x.n);else{if(x.a)atomsOf(x.a,acc);if(x.b)atomsOf(x.b,acc);}return acc;}
+function fresh(x){const u=atomsOf(x);return POOL.find(a=>!u.has(a))||'z';}
+function wraps(b){const x=A(fresh(b));return[AND(b,x),AND(x,b),OR(b,x),OR(x,b),NOT(b)];}
+function candidates(c){const seen=new Set(),out=[];const add=f=>{const k=toStr(f,0);if(!seen.has(k)){seen.add(k);out.push(f);}};add(SEED[c]);const l1=wraps(SEED[c]);l1.forEach(add);l1.forEach(b=>wraps(b).forEach(add));return out;}
+const ALLM=[];for(const [r,ops] of Object.entries(VARIANTS))ops.forEach(op=>ALLM.push({rule:r,op}));
+const uniq=a=>[...new Set(a)];
+
+function generate(c){
+  const cMuts=VARIANTS[c].map(op=>({rule:c,op})), others=ALLM.filter(m=>m.rule!==c);
+  const trace=[]; const collSet=new Set(); let exercised=false;
+  for(const g of candidates(c)){
+    const correct=answer(g,null); if(!correct.cnf) continue;
+    const cObs=cMuts.map(m=>({m,a:answer(g,m)})).filter(x=>x.a.key!==correct.key);
+    if(!cObs.length){ trace.push({g,ok:false,reason:'noexer'}); continue; }
+    exercised=true;
+    const rivalKeys=new Map();
+    for(const m of others){const a=answer(g,m); if(a.key===correct.key)continue; if(!rivalKeys.has(a.key))rivalKeys.set(a.key,[]); rivalKeys.get(a.key).push(m);}
+    const bad=cObs.filter(x=>rivalKeys.has(x.a.key));
+    if(bad.length){
+      const details=bad.map(x=>({op:x.m.op,rivals:uniq(rivalKeys.get(x.a.key).map(m=>m.rule))}));
+      details.forEach(d=>d.rivals.forEach(r=>collSet.add(r)));
+      trace.push({g,ok:false,reason:'coll',details}); continue;
+    }
+    trace.push({g,ok:true});
+    const groups=new Map();
+    const add=m=>{const a=answer(g,m); if(a.key===correct.key)return; if(!groups.has(a.key))groups.set(a.key,{disp:a.display,cnf:a.cnf,muts:[]}); groups.get(a.key).muts.push(m);};
+    cMuts.forEach(add); others.forEach(add);
+    const list=[...groups.values()].map(gr=>({...gr,isC:gr.muts.some(m=>m.rule===c)}));
+    list.sort((a,b)=>(b.isC?1:0)-(a.isC?1:0));
+    return {status:'ok',c,g,correct,groups:list,trace};
+  }
+  return {status:'none',c,trace,exercised,collisions:[...collSet]};
+}
+
+/* ---------------- rendering ---------------- */
+const OPS=new Set(['¬','∧','∨','⇒','⇔']), CLS=new Set(['{','}',',']);
+function fmt(s){let out='',buf='',cls='';const flush=()=>{if(buf)out+=cls?`<span class="${cls}">${buf}</span>`:buf;buf='';};
+  for(const ch of s){const c=OPS.has(ch)?'op':(CLS.has(ch)?'cl':'');if(c!==cls){flush();cls=c;}buf+=ch;}flush();return out;}
+
+const catalog=document.getElementById('catalog');
+GROUPS.forEach(grp=>{
+  const sec=document.createElement('section'); sec.className='group';
+  sec.innerHTML=`<div class="grouphead"><span class="glyph">${grp.g}</span><span class="gname">${grp.name}</span><span class="gdesc">${grp.desc}</span></div>`;
+  RULES.filter(r=>r.g===grp.g).forEach(r=>{
+    const b=document.createElement('button'); b.className='rule'; b.type='button'; b.setAttribute('aria-pressed','false'); b.dataset.id=r.id;
+    b.innerHTML=`<span class="chip">${r.id}</span><span class="formula">${fmt(r.lhs)}<span class="arrow">→</span>${fmt(r.rhs)}</span>`;
+    b.addEventListener('click',()=>select(r.id)); sec.appendChild(b);
+  });
+  catalog.appendChild(sec);
+});
+
+const insp=document.getElementById('insp'); let current=null;
+function select(id){
+  const r=RULES.find(x=>x.id===id); current=id;
+  document.querySelectorAll('.rule').forEach(el=>el.setAttribute('aria-pressed',el.dataset.id===id?'true':'false'));
+  const cat=GROUPS.find(x=>x.g===r.g).name;
+  const muts=VARIANTS[id].map(op=>`<li><span class="mut-op">↛</span><span>${OPLABEL[op]}</span></li>`).join('');
+  insp.innerHTML=`<div class="fade">
+    <div class="target-id">${r.id}</div>
+    <div class="target-name">${r.name}</div>
+    <div class="target-cat">${cat}</div>
+    <div class="block"><p class="block-label">Correct rewrite</p><div class="rewrite">${fmt(r.lhs)}<span class="arrow">→</span>${fmt(r.rhs)}</div></div>
+    <div class="block"><p class="block-label">Generated mistakes (${VARIANTS[id].length})</p><ul class="mut-list">${muts}</ul>
+    <p class="errtext">The generator evaluates each of these against every mistake of every other rule, and keeps a problem only if all of them stay uniquely attributable to ${r.id}.</p></div>
+    <div class="action"><button class="btn" type="button" id="genBtn">Generate isolating problem</button></div>
+  </div>`;
+  document.getElementById('genBtn').addEventListener('click',()=>renderResult(generate(current)));
+  const rr=document.getElementById('result'); rr.classList.remove('show'); rr.innerHTML='';
+  if(window.matchMedia('(max-width:820px)').matches) document.querySelector('.inspector').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+const EXPLAIN={
+  I1:{dropNeg:"Forward implication becomes ‘not the antecedent, or the consequent’. The student writes a plain disjunction of the two parts and forgets to negate the antecedent.",
+      swapConn:"The student negates the antecedent but joins the two parts with ‘and’. An implication turns into a disjunction, not a conjunction.",
+      wrongSide:"The student produces a disjunction but negates the consequent instead of the antecedent.",
+      negBoth:"The student negates both parts before joining them with ‘or’.",
+      skip:"The student leaves the implication untouched. Clausal form has no arrows, so the conversion cannot finish."},
+  I3:{dropConjL:"A biconditional holds only when both directions do, so it needs two clauses joined by ‘and’. The student writes just the forward direction and drops the other.",
+      dropConjR:"The student writes just the backward direction and drops the forward one.",
+      swapTop:"The student produces both directions but joins them with ‘or’, so the two clauses merge into one.",
+      swapConn:"The student builds both directions but uses ‘and’ inside each where it should be ‘or’, turning the clauses into bundles of single literals.",
+      xor:"The student reads ‘if and only if’ as ‘exactly one of the two’ and expands it as exclusive-or, which is actually the opposite of a biconditional.",
+      skip:"The student leaves the double arrow in place."},
+  N1:{partial:"Two negations should cancel completely. The student removes only one and leaves a single negation.",
+      skip:"The student never cancels the double negation, so a doubly-negated atom is left where a literal was needed."},
+  N2:{keepConn:"De Morgan should negate each part and flip ‘and’ to ‘or’. The student negates both parts but keeps the ‘and’.",
+      dropNegL:"The student flips to ‘or’ and negates the right part but leaves the left one positive, as if the outer negation reached only the nearer term.",
+      dropNegR:"The student flips to ‘or’ and negates the left part but leaves the right one positive.",
+      noNeg:"The student flips ‘and’ to ‘or’ but forgets that De Morgan also negates each part.",
+      skip:"The student doesn’t recognise that a negation in front of a group needs De Morgan, and leaves the negated conjunction in place."},
+  N3:{keepConn:"De Morgan should negate each part and flip ‘or’ to ‘and’. The student negates both parts but keeps the ‘or’.",
+      dropNegL:"The student flips to ‘and’ and negates the right part but leaves the left one positive.",
+      dropNegR:"The student flips to ‘and’ and negates the left part but leaves the right one positive.",
+      noNeg:"The student flips ‘or’ to ‘and’ but forgets to negate either part.",
+      skip:"The student leaves the negated disjunction in place instead of applying De Morgan."},
+  D1:{skip:"To reach clausal form, ‘or’ has to distribute over ‘and’. The student stops early and leaves an ‘or’ sitting above an ‘and’, which is not yet a conjunction of clauses.",
+      dualDist:"The student mixes up the two distribution laws and distributes ‘and’ over ‘or’ instead. The result is a disjunction of conjunctions, the wrong normal form.",
+      swapJoin:"The student distributes across each part correctly but joins the two results with ‘or’ instead of ‘and’, collapsing them into a single clause.",
+      partialL:"The student distributes into the first part only and forgets the second.",
+      partialR:"The student distributes into the second part only and forgets the first."},
+  D2:{skip:"To reach clausal form, ‘or’ has to distribute over ‘and’. The student stops early and leaves an ‘or’ sitting above an ‘and’, which is not yet a conjunction of clauses.",
+      dualDist:"The student mixes up the two distribution laws and distributes ‘and’ over ‘or’ instead. The result is a disjunction of conjunctions, the wrong normal form.",
+      swapJoin:"The student distributes across each part correctly but joins the two results with ‘or’ instead of ‘and’, collapsing them into a single clause.",
+      partialL:"The student distributes into the first part only and forgets the second.",
+      partialR:"The student distributes into the second part only and forgets the first."},
+  O1:{split:"A disjunction of literals is one clause. The student splits it into a separate clause per literal, treating ‘or’ like ‘and’."},
+  O2:{lump:"A conjunction should become several clauses, one per conjunct. The student puts all the literals into a single clause, treating ‘and’ like ‘or’."},
+};
+function stageOf(r){return r[0]==='I'?1:r[0]==='N'?2:r[0]==='D'?3:4;}
+function trace(g,m){
+  const e=elim(g,m),n=nnf(e,m),c=cnf(n,m),ans=answer(g,m);
+  const fin=ans.cnf?ans.display:('not in clausal form: '+ans.display);
+  const es=stageOf(m.rule);
+  const raw=[
+    {i:0,label:'Start',f:toStr(g,0)},
+    {i:1,label:'Eliminate ⇒ and ⇔',f:toStr(e,0)},
+    {i:2,label:'Move ¬ inward',f:toStr(n,0)},
+    {i:3,label:'Distribute ∨ over ∧',f:toStr(c,0)},
+    {i:4,label:'Read off as clauses',f:fin},
+  ];
+  raw.forEach(s=>{if(s.i===es){s.isError=true;s.note=(EXPLAIN[m.rule]||{})[m.op]||'';}});
+  const out=[raw[0]]; let prev=raw[0].f;
+  for(let k=1;k<raw.length;k++){const s=raw[k]; if(s.f!==prev||s.isError){out.push(s);prev=s.f;}}
+  return out;
+}
+function walkHTML(g,m,correctDisp){
+  const li=trace(g,m).map(s=>`<li class="${s.isError?'err':''}"><span class="st-label">${s.label}</span>${fmt(s.f)}${s.isError&&s.note?`<div class="st-note">${s.note}</div>`:''}</li>`).join('');
+  const ans=answer(g,m); const ad=ans.cnf?ans.display:('not in clausal form: '+ans.display);
+  return `<div class="walk"><p class="walk-lead">A student who would <b>${OPLABEL[m.op]}</b>:</p>
+    <p class="walk-why">${(EXPLAIN[m.rule]||{})[m.op]||''}</p>
+    <ol class="steps">${li}</ol>
+    <p class="walk-end">This lands on <code>${fmt(ad)}</code>, where the correct answer is <code>${fmt(correctDisp)}</code>.</p></div>`;
+}
+
+function renderResult(res){
+  const el=document.getElementById('result'); const rid=RULES.find(r=>r.id===res.c);
+  let h=`<p class="result-head">Generator output</p><h2 class="result-title">Isolating problem for <b>${res.c}</b> &middot; ${rid.name}</h2>`;
+  h+=`<p class="result-sub">Grammar generated ${ALLM.length} single-rule misconceptions in total; ${VARIANTS[res.c].length} of them touch ${res.c}.</p>`;
+  if(res.trace.length){
+    h+='<div class="trace">';
+    for(const t of res.trace){
+      const f=fmt(toStr(t.g,0));
+      if(t.ok) h+=`<div class="trace-row"><span class="pill pass">accepted</span><span>${f}</span><span class="trace-note">every ${res.c} mistake is unique here</span></div>`;
+      else if(t.reason==='coll'){
+        const note=t.details.map(d=>`${OPLABEL[d.op]} collides with ${d.rivals.join(', ')}`).join(' · ');
+        h+=`<div class="trace-row"><span class="pill fail">rejected</span><span>${f}</span><span class="trace-note">${note}</span></div>`;
+      } else h+=`<div class="trace-row"><span class="pill fail">rejected</span><span>${f}</span><span class="trace-note">does not exercise ${res.c}</span></div>`;
+    }
+    h+='</div>';
+  }
+  if(res.status==='ok'){
+    const cGroups=res.groups.filter(g=>g.isC), oGroups=res.groups.filter(g=>!g.isC);
+    const sigCards=cGroups.map(gr=>{
+      const wa=gr.cnf?fmt(gr.disp):`<span style="color:var(--muted)">not in clausal form: </span>${fmt(gr.disp)}`;
+      const walks=gr.muts.filter(m=>m.rule===res.c).map(m=>walkHTML(res.g,m,res.correct.display)).join('');
+      return `<div class="sig"><button class="sig-row" type="button" aria-expanded="false"><span class="wa">${wa}</span><span class="chev">explain ▸</span></button><div class="sig-detail" hidden>${walks}</div></div>`;
+    }).join('');
+    const oRows=oGroups.map(gr=>{
+      const wa=gr.cnf?fmt(gr.disp):`<span style="color:var(--muted)">not in clausal form: </span>${fmt(gr.disp)}`;
+      return `<tr><td class="wa">${wa}</td><td class="tag">${uniq(gr.muts.map(m=>m.rule)).join(', ')}</td></tr>`;
+    }).join('');
+    h+=`<div class="cert"><p class="lbl">Certified problem</p><p class="prob">${fmt(toStr(res.g,0))}</p>
+      <div class="block"><p class="lbl">Answer key &middot; correct clausal form</p><div class="answer-key">${fmt(res.correct.display)}</div></div>
+      <p class="subhead">Signatures of ${res.c} &middot; tap a mistake to see the student's reasoning</p>
+      ${sigCards}`;
+    if(oGroups.length) h+=`<p class="subhead">Other gaps this problem happens to reveal</p><table class="dmap"><tbody>${oRows}</tbody></table>`;
+    h+=`<p class="errtext" style="margin-top:18px">Gate A: clausal form is canonical, so the correct answer is unique. Gate B: at least one ${res.c} mistake changes that answer. Gate C: every ${res.c} mistake above lands on its own answer, produced by no other rule.</p></div>`;
+  } else if(!res.exercised){
+    h+=`<div class="verdict"><h3>Non-isolable: this rule cannot be observed</h3><p>${res.c} only removes nesting, and a clause set does not record nesting. Every operator edit of ${res.c} leaves the final answer unchanged, so no problem in the space can isolate it. This is a genuine non-isolable verdict, not a search that ran out of room.</p></div>`;
+  } else {
+    h+=`<div class="verdict"><h3>Non-isolable within this problem space</h3><p>On every problem that exercises ${res.c}, at least one way of getting ${res.c} wrong reaches the same answer as a mistake in another rule. Unresolved collisions: <code>${res.collisions.join(', ')}</code>. A larger problem space or a short adaptive sequence would be the next move.</p></div>`;
+  }
+  el.innerHTML=h; el.classList.add('show');
+  el.querySelectorAll('.sig-row').forEach(btn=>btn.addEventListener('click',()=>{
+    const d=btn.nextElementSibling, open=!d.hidden; d.hidden=open;
+    btn.setAttribute('aria-expanded',String(!open));
+    btn.querySelector('.chev').textContent=open?'explain ▸':'hide ▾';
+  }));
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+</script>
+</body>
+</html>
